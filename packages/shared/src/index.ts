@@ -7,6 +7,7 @@ export * from './telemetry';
 export * from './emitter';
 export * from './source';
 export * from './liveSource';
+export * from './googleRoutes';
 export { MockTransitSource } from './mock/mockSource';
 export type { MockOptions } from './mock/mockSource';
 export * as mockData from './mock/data';

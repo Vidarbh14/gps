@@ -3,7 +3,7 @@ import { haversine, pointAlongLine, polylineLength } from '../geo';
 import type { FleetSnapshot, TransitDataSource } from '../source';
 import { normalizeMqtt } from '../telemetry';
 import type {
-  DigitalToken, LngLat, MqttTelemetryPayload, ServerToClientEvents, TelemetryUpdate, TokenStatus,
+  DigitalToken, LngLat, MqttTelemetryPayload, Route, ServerToClientEvents, Stop, TelemetryUpdate, TokenStatus,
 } from '../types';
 import { BUSES, ROUTES, STOPS, STUDENT_NAMES, TRIPS } from './data';
 
@@ -53,12 +53,15 @@ export class MockTransitSource implements TransitDataSource {
   private sims: SimBus[];
   private tokens: DigitalToken[] = [];
   private nextTokenId = 1;
+  // Per-instance copies so road geometry from Google can replace the straight-line mock data.
+  private routes: Route[] = ROUTES.map((r) => ({ ...r }));
+  private stops: Stop[] = STOPS.map((s) => ({ ...s }));
 
   constructor(opts: MockOptions = {}) {
     this.opts = { tickMs: 2000, timeScale: 6, partitionBusId: 'B-404', seed: 42, ...opts };
     this.rand = mulberry32(this.opts.seed);
     this.sims = TRIPS.map((trip, i) => {
-      const route = ROUTES.find((r) => r.id === trip.route_id)!;
+      const route = this.routes.find((r) => r.id === trip.route_id)!;
       const bus = BUSES.find((b) => b.id === trip.bus_id)!;
       const length = polylineLength(route.polyline);
       const inCount = 10 + Math.floor(this.rand() * 25);
@@ -91,7 +94,24 @@ export class MockTransitSource implements TransitDataSource {
   }
 
   async getSnapshot(): Promise<FleetSnapshot> {
-    return { routes: ROUTES, stops: STOPS, buses: BUSES, trips: TRIPS };
+    return { routes: this.routes, stops: this.stops, buses: BUSES, trips: TRIPS };
+  }
+
+  /**
+   * Swap a route's straight-line mock path for a road-following one (e.g. from Google Routes).
+   * Buses keep their relative progress, so they move onto the road instead of restarting.
+   */
+  setRouteGeometry(routeId: string, polyline: LngLat[], stopLocations: Record<string, LngLat> = {}): void {
+    if (polyline.length < 2) return;
+    this.routes = this.routes.map((r) => (r.id === routeId ? { ...r, polyline } : r));
+    this.stops = this.stops.map((s) => (stopLocations[s.id] ? { ...s, location: stopLocations[s.id]! } : s));
+    const length = polylineLength(polyline);
+    for (const sim of this.sims) {
+      if (TRIPS.find((t) => t.id === sim.tripId)?.route_id !== routeId) continue;
+      sim.along = (sim.along / sim.length) * length;
+      sim.line = polyline;
+      sim.length = length;
+    }
   }
 
   async getTokens(): Promise<DigitalToken[]> {
@@ -191,7 +211,7 @@ export class MockTransitSource implements TransitDataSource {
 
     const pos = pointAlongLine(sim.line, sim.along);
     const route = TRIPS.find((t) => t.id === sim.tripId)!.route_id;
-    const stop = STOPS.find(
+    const stop = this.stops.find(
       (s) => s.route_id === route && s.id !== sim.lastStopId && haversine(s.location, pos) < s.geofence_radius_meters * 3,
     );
     if (stop) {

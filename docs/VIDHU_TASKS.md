@@ -19,6 +19,9 @@ PDF; items marked **(implied)** are not spelled out but are required for the exp
 - [x] SOS alert banner fed by `sos_active` in telemetry  *(implied — SOS must surface somewhere)*
 - [ ] Auth / role gate (dispatcher only)  *(implied, needs Siddhant's auth decision)*
 
+- [x] Real-road route geometry via Google Routes API, shown on Google Maps  *(team request — replaces
+      React-Map-GL from §5.1 when a Google key is set; MapLibre remains the keyless fallback)*
+
 ### 2.2 Student App (explicit, §5.1)
 - [ ] Live tracking of own route's bus with **ETA** to the student's stop
 - [ ] **"JOIN QUEUE"** button for afternoon departures → shows queue position live

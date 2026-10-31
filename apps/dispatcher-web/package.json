@@ -12,6 +12,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.59.16",
     "@transitlink/shared": "*",
+    "@vis.gl/react-google-maps": "^1.10.2",
     "maplibre-gl": "^4.7.1",
     "next": "^14.2.33",
     "react": "^18.3.1",

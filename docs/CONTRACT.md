@@ -42,6 +42,12 @@ Auth: socket handshake `auth.token` = Supabase access token. Server should put d
 | DELETE | `/api/sos/:bus_id` | — | 204 (dispatcher) |
 | GET | `/api/students/me/fallback` | — | `FallbackSuggestion \| null` |
 
+## Road geometry
+`routes.polyline` should hold the **road-following** path. The frontend currently fetches it from Google
+Routes at runtime (`packages/shared/src/googleRoutes.ts` has the request builder/parser — reusable from
+Node). Google's terms limit storing Routes API content, so check the Maps Platform terms before persisting
+Google polylines in the DB; an alternative is drawing routes once by hand / from OSM and storing those.
+
 ## Questions for the team
 1. Which pax value is authoritative in telemetry — fused (Vansh) or raw IR `net_current`? UI assumes fused.
 2. Is ETA computed server-side? UI currently estimates client-side (`packages/shared/src/eta.ts`).

@@ -3,11 +3,14 @@
 import dynamic from 'next/dynamic';
 import { FleetPanel } from '@/components/FleetPanel';
 
-// maplibre touches `window` at import time, so the map is client-only.
-const LiveMap = dynamic(() => import('@/components/LiveMap'), {
-  ssr: false,
-  loading: () => <div className="grid h-full place-items-center text-sm text-slate-500">Loading map…</div>,
-});
+const loading = () => <div className="grid h-full place-items-center text-sm text-slate-500">Loading map…</div>;
+
+// Google Maps (real road routes) when a key is configured; otherwise the keyless MapLibre map with
+// straight-line mock routes, so teammates without a Google billing account can still run the app.
+// Both touch `window` at import time, so the map is client-only.
+const LiveMap = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  ? dynamic(() => import('@/components/GoogleLiveMap'), { ssr: false, loading })
+  : dynamic(() => import('@/components/LiveMap'), { ssr: false, loading });
 
 export default function DashboardPage() {
   return (
