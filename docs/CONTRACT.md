@@ -1,0 +1,48 @@
+# Frontend ↔ Backend Contract (PROPOSAL — for Siddhant to review)
+
+Source of truth for types: `packages/shared/src/types.ts`. Everything here is a proposal derived from
+the Blueprint; the Blueprint does not define API routes, socket events, or enum values.
+
+## Enum values (Blueprint lists these as enums without values)
+| Column | Proposed values |
+|---|---|
+| `users.role` | `student`, `driver`, `dispatcher`, `admin` |
+| `buses.status` | `active`, `idle`, `maintenance`, `offline` |
+| `digital_tokens.status` | `waiting`, `called`, `boarded`, `expired`, `cancelled` |
+
+## Coordinates
+All coordinates sent to the frontend are **GeoJSON order `[lng, lat]`**. (Note the MQTT payload uses
+named `lat`/`lon` fields — the backend converts.)
+
+## Socket.io — server → client
+| Event | Payload | When |
+|---|---|---|
+| `telemetry:update` | `TelemetryUpdate` | Each MQTT message (~2 s/bus), after IR+CV fusion |
+| `telemetry:batch` | `TelemetryUpdate[]` (oldest → newest) | ESP32 bulk-publishes after GSM reconnect (§6). **Please forward as one batch, not N single updates** — the UI replays it as a smooth path |
+| `token:update` | `DigitalToken` | Any token create/status change |
+| `sos:alert` | `SosAlert` | `sos_active` becomes true |
+| `sos:cleared` | `{ bus_id }` | Dispatcher resolves SOS |
+| `trip:last_bus_departed` | `{ route_id, trip_id }` | Geofence exit of a trip with `is_last_bus = true` (§6) |
+| `fallback:suggestion` | `FallbackSuggestion` | Result of `find_fallback_route` for an affected student |
+
+`TelemetryUpdate.timestamp` must be the **device** timestamp, not server receive time — the UI uses it
+to drop out-of-order samples and to detect stale buses (> 10 s).
+
+Auth: socket handshake `auth.token` = Supabase access token. Server should put dispatchers in a
+`dispatch` room and students in `route:<id>` rooms so students don't receive the whole fleet.
+
+## REST
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/fleet/snapshot` | — | `{ routes, stops, buses, trips }` |
+| GET | `/api/tokens?active=true` | — | `DigitalToken[]` (include `student_name` for dispatcher) |
+| POST | `/api/tokens` | `{ trip_id }` | `DigitalToken` — **idempotent**: return existing active token for same student+trip. Student id from auth, never from body |
+| PATCH | `/api/tokens/:id` | `{ status }` | `DigitalToken` (dispatcher only) |
+| POST | `/api/sos` | `{ bus_id }` | 204 (driver app) |
+| DELETE | `/api/sos/:bus_id` | — | 204 (dispatcher) |
+| GET | `/api/students/me/fallback` | — | `FallbackSuggestion \| null` |
+
+## Questions for the team
+1. Which pax value is authoritative in telemetry — fused (Vansh) or raw IR `net_current`? UI assumes fused.
+2. Is ETA computed server-side? UI currently estimates client-side (`packages/shared/src/eta.ts`).
+3. Queue scope: per trip (assumed) or per route?
