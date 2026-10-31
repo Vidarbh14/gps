@@ -8,6 +8,7 @@ export * from './emitter';
 export * from './source';
 export * from './liveSource';
 export * from './googleRoutes';
+export * from './fallback';
 export { MockTransitSource } from './mock/mockSource';
 export type { MockOptions } from './mock/mockSource';
 export * as mockData from './mock/data';

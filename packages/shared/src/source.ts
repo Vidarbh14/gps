@@ -1,4 +1,6 @@
-import type { ActiveTrip, Bus, DigitalToken, Route, ServerToClientEvents, Stop, TokenStatus } from './types';
+import type {
+  ActiveTrip, Bus, DigitalToken, FallbackSuggestion, LngLat, Route, ServerToClientEvents, Stop, TokenStatus,
+} from './types';
 
 export interface FleetSnapshot {
   routes: Route[];
@@ -23,4 +25,8 @@ export interface TransitDataSource {
   joinQueue(studentId: string, tripId: string): Promise<DigitalToken>;
   raiseSos(busId: string): Promise<void>;
   clearSos(busId: string): Promise<void>;
+  /** `find_fallback_route` (§2.2). `home` is only used by the mock; the backend reads users.home_location. */
+  getFallbackSuggestion(studentId: string, defaultRouteId: string, home: LngLat): Promise<FallbackSuggestion | null>;
+  /** Driver geofence transition (enter/exit a stop or campus). */
+  reportGeofenceEvent(e: { bus_id: string; region_id: string; event: 'enter' | 'exit'; timestamp: number }): Promise<void>;
 }

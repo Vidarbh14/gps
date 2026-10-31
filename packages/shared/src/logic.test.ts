@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateEta, formatEta } from './eta';
+import { directionAlong, estimateEta, formatEta } from './eta';
 import { distanceAlongLine, haversine, pointAlongLine, polylineLength } from './geo';
 import { MockTransitSource } from './mock/mockSource';
 import { effectivePosition, nextToCall, occupancyLevel } from './queue';
@@ -29,6 +29,12 @@ describe('eta', () => {
   });
   it('falls back to an average speed when stopped', () => {
     expect(estimateEta(line, line[0]!, stop, 0).seconds).toBeGreaterThan(0);
+  });
+  it('handles buses running against polyline order', () => {
+    const r = estimateEta(line, stop, line[0]!, 36, { direction: -1 });
+    expect(r.passed).toBe(false);
+    expect(r.seconds).toBeCloseTo(polylineLength(line) / 10, -1);
+    expect(directionAlong(line, stop, line[1]!)).toBe(-1);
   });
   it('reports a passed stop', () => {
     const r = estimateEta(line, stop, line[0]!, 30);

@@ -5,7 +5,7 @@ Frontend for the AI-driven college bus fleet system described in *TransitLink Ar
 ```
 packages/shared        Types, data-source interface, mock simulator, interpolation, ETA, queue logic (+ tests)
 apps/dispatcher-web    Next.js 14 dispatcher dashboard: live map + queue manager
-apps/mobile            (next) Expo app — Student + Driver roles
+apps/mobile            Expo (SDK 58) app — Student + Driver roles (own node_modules, see below)
 docs/VIDHU_TASKS.md    Task breakdown extracted from the blueprint
 docs/CONTRACT.md       Proposed API/socket contract for the backend
 ```
@@ -20,6 +20,26 @@ npm run build:web
 
 Copy `apps/dispatcher-web/.env.example` to `.env.local` to switch to the live backend
 (`NEXT_PUBLIC_DATA_SOURCE=live`).
+
+### Mobile app
+```bash
+cd apps/mobile
+npm install
+npx expo start       # scan the QR code with Expo Go (Android/iOS)
+```
+`apps/mobile` is **not** an npm workspace: Expo SDK 58 needs React 19, Next.js 14 needs React 18, and one
+workspace would install duplicate Reacts (a runtime crash). Metro reaches `packages/shared` via
+`metro.config.js`; TypeScript via `tsconfig.json` paths.
+
+**Works in Expo Go:** role picker, live tracking + ETA, queue (join/position/called), fallback modal, SOS,
+local notifications, Google map on Android. Demo buttons trigger the last-bus workflow without leaving campus.
+
+**Needs a development build** (`npx eas-cli@latest build --profile development`): background geofencing
+(Expo Go has no background location) and remote FCM push (removed from Expo Go on Android in SDK 53).
+For FCM also add your Firebase `google-services.json` and FCM V1 credentials in EAS.
+
+For Google road routes on the phone, run the web app and set `EXPO_PUBLIC_WEB_URL` to your PC's **LAN IP**
+(see `apps/mobile/.env.example`); the phone uses the web app's `/api/road-route` proxy.
 
 ## Design decisions
 - **One `TransitDataSource` interface** (`packages/shared/src/source.ts`). The mock simulator emits Rahul's

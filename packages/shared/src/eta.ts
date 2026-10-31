@@ -16,6 +16,15 @@ export interface EtaOptions {
   fallbackKmh?: number;
   /** Tolerance before a stop counts as passed (GPS jitter). */
   passedToleranceMeters?: number;
+  /** 1 = travelling in polyline order, -1 = reverse (e.g. afternoon run back from campus). */
+  direction?: 1 | -1;
+}
+
+/** Travel direction along a route from two successive positions; null if it barely moved. */
+export function directionAlong(route: LngLat[], prev: LngLat, curr: LngLat, minMeters = 5): 1 | -1 | null {
+  const d = distanceAlongLine(route, curr) - distanceAlongLine(route, prev);
+  if (Math.abs(d) < minMeters) return null;
+  return d > 0 ? 1 : -1;
 }
 
 /**
@@ -29,8 +38,8 @@ export function estimateEta(
   speedKmh: number,
   opts: EtaOptions = {},
 ): EtaResult {
-  const { stoppedBelowKmh = 5, fallbackKmh = 18, passedToleranceMeters = 40 } = opts;
-  const meters = distanceAlongLine(route, stop) - distanceAlongLine(route, bus);
+  const { stoppedBelowKmh = 5, fallbackKmh = 18, passedToleranceMeters = 40, direction = 1 } = opts;
+  const meters = direction * (distanceAlongLine(route, stop) - distanceAlongLine(route, bus));
   if (meters < -passedToleranceMeters) return { meters, seconds: null, passed: true };
   const remaining = Math.max(0, meters);
   const kmh = speedKmh < stoppedBelowKmh ? fallbackKmh : speedKmh;

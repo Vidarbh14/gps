@@ -40,7 +40,10 @@ Auth: socket handshake `auth.token` = Supabase access token. Server should put d
 | PATCH | `/api/tokens/:id` | `{ status }` | `DigitalToken` (dispatcher only) |
 | POST | `/api/sos` | `{ bus_id }` | 204 (driver app) |
 | DELETE | `/api/sos/:bus_id` | — | 204 (dispatcher) |
-| GET | `/api/students/me/fallback` | — | `FallbackSuggestion \| null` |
+| GET | `/api/students/me/fallback` | — | `FallbackSuggestion \| null` (reference logic: `packages/shared/src/fallback.ts`) |
+| PATCH | `/api/tokens/:id` (student) | `{ status: "cancelled" }` | Students may cancel **their own** token only |
+| POST | `/api/geofence-events` | `{ bus_id, region_id, event: "enter"\|"exit", timestamp }` | 204. `region_id` is `campus` or `stop:<id>`. Campus `exit` on an `is_last_bus` trip → end trip, emit `trip:last_bus_departed`, send FCM (§6) |
+| POST | `/api/devices` | `{ platform: "android"\|"ios", token }` | 204. Native FCM/APNs token from `getDevicePushTokenAsync` |
 
 ## Road geometry
 `routes.polyline` should hold the **road-following** path. The frontend currently fetches it from Google

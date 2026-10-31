@@ -1,7 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { Emitter } from './emitter';
 import type { FleetSnapshot, TransitDataSource } from './source';
-import type { DigitalToken, ServerToClientEvents, TokenStatus } from './types';
+import type { DigitalToken, FallbackSuggestion, ServerToClientEvents, TokenStatus } from './types';
 
 export interface LiveSourceOptions {
   apiUrl: string;
@@ -70,6 +70,15 @@ export class LiveTransitSource implements TransitDataSource {
 
   clearSos(busId: string): Promise<void> {
     return this.request(`/api/sos/${encodeURIComponent(busId)}`, { method: 'DELETE' });
+  }
+
+  getFallbackSuggestion(): Promise<FallbackSuggestion | null> {
+    // Backend runs find_fallback_route with users.home_location; client-sent location is ignored.
+    return this.request('/api/students/me/fallback');
+  }
+
+  reportGeofenceEvent(e: { bus_id: string; region_id: string; event: 'enter' | 'exit'; timestamp: number }): Promise<void> {
+    return this.request('/api/geofence-events', { method: 'POST', body: e });
   }
 
   private async request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {

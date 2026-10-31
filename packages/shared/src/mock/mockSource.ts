@@ -3,9 +3,10 @@ import { haversine, pointAlongLine, polylineLength } from '../geo';
 import type { FleetSnapshot, TransitDataSource } from '../source';
 import { normalizeMqtt } from '../telemetry';
 import type {
-  DigitalToken, LngLat, MqttTelemetryPayload, Route, ServerToClientEvents, Stop, TelemetryUpdate, TokenStatus,
+  ActiveTrip, DigitalToken, FallbackSuggestion, LngLat, MqttTelemetryPayload, Route, ServerToClientEvents, Stop, TelemetryUpdate, TokenStatus,
 } from '../types';
-import { BUSES, ROUTES, STOPS, STUDENT_NAMES, TRIPS } from './data';
+import { findFallbackRoute } from '../fallback';
+import { BUSES, CAMPUS, ROUTES, STOPS, STUDENT_NAMES, TRIPS } from './data';
 
 export interface MockOptions {
   tickMs?: number;
@@ -14,6 +15,8 @@ export interface MockOptions {
   /** Bus that periodically loses GSM and bulk-publishes on reconnect (Blueprint §6). */
   partitionBusId?: string | null;
   seed?: number;
+  /** Simulate a dispatcher calling/boarding tokens (for the mobile app, which has no dispatcher UI). */
+  autoDispatch?: boolean;
 }
 
 interface SimBus {
@@ -56,23 +59,24 @@ export class MockTransitSource implements TransitDataSource {
   // Per-instance copies so road geometry from Google can replace the straight-line mock data.
   private routes: Route[] = ROUTES.map((r) => ({ ...r }));
   private stops: Stop[] = STOPS.map((s) => ({ ...s }));
+  private trips: ActiveTrip[] = TRIPS.map((t) => ({ ...t }));
 
   constructor(opts: MockOptions = {}) {
-    this.opts = { tickMs: 2000, timeScale: 6, partitionBusId: 'B-404', seed: 42, ...opts };
+    this.opts = { tickMs: 2000, timeScale: 6, partitionBusId: 'B-404', seed: 42, autoDispatch: false, ...opts };
     this.rand = mulberry32(this.opts.seed);
-    this.sims = TRIPS.map((trip, i) => {
+    this.sims = this.trips.map((trip, i) => {
       const route = this.routes.find((r) => r.id === trip.route_id)!;
       const bus = BUSES.find((b) => b.id === trip.bus_id)!;
       const length = polylineLength(route.polyline);
       const inCount = 10 + Math.floor(this.rand() * 25);
       return {
         busId: bus.id, tripId: trip.id, line: route.polyline, length,
-        along: (length * (i + 1)) / (TRIPS.length + 1), dir: 1, speedKmh: 25,
+        along: (length * (i + 1)) / (this.trips.length + 1), dir: 1, speedKmh: 25,
         dwell: 0, lastStopId: null, inCount, outCount: 0, capacity: bus.max_capacity,
         sos: false, buffered: [],
       };
     });
-    for (const trip of TRIPS) {
+    for (const trip of this.trips) {
       const n = 6 + Math.floor(this.rand() * 10);
       for (let k = 0; k < n; k++) this.addToken(trip.id, k < 2 ? 'called' : 'waiting');
     }
@@ -94,7 +98,33 @@ export class MockTransitSource implements TransitDataSource {
   }
 
   async getSnapshot(): Promise<FleetSnapshot> {
-    return { routes: this.routes, stops: this.stops, buses: BUSES, trips: TRIPS };
+    return { routes: this.routes, stops: this.stops, buses: BUSES, trips: this.trips };
+  }
+
+  async getFallbackSuggestion(studentId: string, defaultRouteId: string, home: LngLat): Promise<FallbackSuggestion | null> {
+    const paxByBus = Object.fromEntries(this.sims.map((s) => [s.busId, s.inCount - s.outCount]));
+    return findFallbackRoute({
+      studentId, defaultRouteId, home, paxByBus, boardingPoint: CAMPUS,
+      snapshot: await this.getSnapshot(),
+    });
+  }
+
+  /**
+   * §6 "Last Bus Departure": a geofence exit from campus by a trip flagged is_last_bus ends that
+   * trip and notifies students (the backend would also send FCM pushes here).
+   */
+  async reportGeofenceEvent(e: { bus_id: string; region_id: string; event: 'enter' | 'exit'; timestamp: number }): Promise<void> {
+    if (e.region_id !== 'campus' || e.event !== 'exit') return;
+    const trip = this.trips.find((t) => t.bus_id === e.bus_id && t.end_time === null);
+    if (trip?.is_last_bus) this.endTrip(trip.id);
+  }
+
+  /** Demo helper: marks a trip as departed/ended. */
+  endTrip(tripId: string): void {
+    const trip = this.trips.find((t) => t.id === tripId);
+    if (!trip || trip.end_time !== null) return;
+    this.trips = this.trips.map((t) => (t.id === tripId ? { ...t, end_time: new Date().toISOString() } : t));
+    if (trip.is_last_bus) this.events.emit('trip:last_bus_departed', { route_id: trip.route_id, trip_id: trip.id });
   }
 
   /**
@@ -107,7 +137,7 @@ export class MockTransitSource implements TransitDataSource {
     this.stops = this.stops.map((s) => (stopLocations[s.id] ? { ...s, location: stopLocations[s.id]! } : s));
     const length = polylineLength(polyline);
     for (const sim of this.sims) {
-      if (TRIPS.find((t) => t.id === sim.tripId)?.route_id !== routeId) continue;
+      if (this.trips.find((t) => t.id === sim.tripId)?.route_id !== routeId) continue;
       sim.along = (sim.along / sim.length) * length;
       sim.line = polyline;
       sim.length = length;
@@ -185,8 +215,22 @@ export class MockTransitSource implements TransitDataSource {
       }
     }
     if (this.tick % 4 === 0) {
-      const trip = TRIPS[Math.floor(this.rand() * TRIPS.length)]!;
+      const trip = this.trips[Math.floor(this.rand() * this.trips.length)]!;
       this.addToken(trip.id, 'waiting');
+    }
+    if (this.opts.autoDispatch && this.tick % 3 === 0) this.dispatchStep();
+  }
+
+  /** Per trip: board the earliest called token, then call the next waiting one. */
+  private dispatchStep(): void {
+    for (const trip of this.trips) {
+      const list = this.tokens
+        .filter((t) => t.trip_id === trip.id)
+        .sort((a, b) => a.queue_position - b.queue_position);
+      const called = list.find((t) => t.status === 'called');
+      if (called) void this.updateTokenStatus(called.id, 'boarded');
+      const waiting = list.find((t) => t.status === 'waiting');
+      if (waiting) void this.updateTokenStatus(waiting.id, 'called');
     }
   }
 
@@ -210,7 +254,7 @@ export class MockTransitSource implements TransitDataSource {
     if (sim.along <= 0) { sim.along = 0; sim.dir = 1; }
 
     const pos = pointAlongLine(sim.line, sim.along);
-    const route = TRIPS.find((t) => t.id === sim.tripId)!.route_id;
+    const route = this.trips.find((t) => t.id === sim.tripId)!.route_id;
     const stop = this.stops.find(
       (s) => s.route_id === route && s.id !== sim.lastStopId && haversine(s.location, pos) < s.geofence_radius_meters * 3,
     );

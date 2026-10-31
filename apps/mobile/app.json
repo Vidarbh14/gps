@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "TransitLink",
+    "slug": "transitlink",
+    "scheme": "transitlink",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.geu.transitlink"
+    },
+    "android": {
+      "package": "in.geu.transitlink",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true,
+          "locationAlwaysAndWhenInUsePermission": "TransitLink uses your location in the background to detect when the bus leaves campus and reaches stops, so you never have to tap anything while driving.",
+          "locationWhenInUsePermission": "TransitLink uses your location to show where you are relative to your bus."
+        }
+      ],
+      "expo-notifications",
+      "react-native-maps"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

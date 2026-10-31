@@ -30,6 +30,7 @@ export function RealtimeBridge() {
       src.on('telemetry:batch', (us) => feed(us, true)),
       src.on('sos:alert', raiseSos),
       src.on('sos:cleared', ({ bus_id }) => clearSos(bus_id)),
+      src.on('trip:last_bus_departed', () => qc.invalidateQueries({ queryKey: keys.snapshot })),
       src.on('token:update', (t: DigitalToken) =>
         qc.setQueryData<DigitalToken[]>(keys.tokens, (list) => (list ? upsertToken(list, t) : list)),
       ),
