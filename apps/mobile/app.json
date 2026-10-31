@@ -32,11 +32,13 @@
         {
           "isAndroidBackgroundLocationEnabled": true,
           "isIosBackgroundLocationEnabled": true,
-          "locationAlwaysAndWhenInUsePermission": "TransitLink uses your location in the background to detect when the bus leaves campus and reaches stops, so you never have to tap anything while driving.",
-          "locationWhenInUsePermission": "TransitLink uses your location to show where you are relative to your bus."
+          "isAndroidForegroundServiceEnabled": true,
+          "locationAlwaysAndWhenInUsePermission": "Drivers: while a trip is running, TransitLink shares the bus's location with students on your route, even with the screen off. Tracking stops when you end the trip.",
+          "locationWhenInUsePermission": "Students: shows your position, nearby stops and your bus (your location stays on this phone). Drivers: shares the bus's location during a trip."
         }
       ],
       "expo-notifications",
+      "expo-secure-store",
       "react-native-maps"
     ],
     "experiments": {

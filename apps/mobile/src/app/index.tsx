@@ -1,8 +1,9 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, Chip, colors } from '@/components/ui';
 import { isMock } from '@/lib/dataSource';
+import { isLive } from '@/lib/live';
 import { useSnapshot } from '@/lib/queries';
 import { useSession, type Role } from '@/store/session';
 
@@ -11,6 +12,11 @@ import { useSession, type Role } from '@/store/session';
  * default route and assigned bus come from the `users` table.
  */
 export default function Welcome() {
+  if (isLive()) return <Redirect href="/login" />;
+  return <DemoWelcome />;
+}
+
+function DemoWelcome() {
   const { data, isLoading, error } = useSnapshot();
   const setStudent = useSession((s) => s.setStudent);
   const setDriver = useSession((s) => s.setDriver);

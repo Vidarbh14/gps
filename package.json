@@ -3,10 +3,13 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/dispatcher-web"
+    "apps/dispatcher-web",
+    "apps/tracking-server"
   ],
   "scripts": {
     "dev:web": "npm run dev -w @transitlink/dispatcher-web",
+    "dev:server": "npm run dev -w @transitlink/tracking-server",
+    "test:server": "npm test -w @transitlink/tracking-server",
     "dev:mobile": "npm --prefix apps/mobile start",
     "typecheck:mobile": "npm --prefix apps/mobile run typecheck",
     "build:web": "npm run build -w @transitlink/dispatcher-web",

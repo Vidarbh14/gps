@@ -7,6 +7,8 @@ import { getDataSource } from '@/lib/dataSource';
 const LINKS = [
   { href: '/', label: 'Live Map' },
   { href: '/queue', label: 'Queue Manager' },
+  { href: '/tracking', label: 'Live GPS' },
+  { href: '/admin/routes', label: 'Route Setup' },
 ];
 
 export function Nav() {

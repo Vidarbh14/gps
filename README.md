@@ -6,9 +6,16 @@ Frontend for the AI-driven college bus fleet system described in *TransitLink Ar
 packages/shared        Types, data-source interface, mock simulator, interpolation, ETA, queue logic (+ tests)
 apps/dispatcher-web    Next.js 14 dispatcher dashboard: live map + queue manager
 apps/mobile            Expo (SDK 58) app — Student + Driver roles (own node_modules, see below)
+apps/tracking-server   Live GPS tracking backend: Express + Socket.IO + Supabase Postgres
+docs/GPS_TRACKING.md   Live GPS tracking: design, setup, CSV reload, what is/isn't verified
 docs/VIDHU_TASKS.md    Task breakdown extracted from the blueprint
 docs/CONTRACT.md       Proposed API/socket contract for the backend
 ```
+
+**Live GPS tracking** (real driver-phone GPS, route-aware ETA, admin route setup) is documented in
+[docs/GPS_TRACKING.md](docs/GPS_TRACKING.md). Try it locally without Supabase:
+`npm run dev:local -w @transitlink/tracking-server` (needs `data/SafarSaathi_Bus_Schedule.csv`, which is
+git-ignored because it contains drivers' phone numbers).
 
 ## Run
 ```bash
